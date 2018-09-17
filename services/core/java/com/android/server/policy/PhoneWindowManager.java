@@ -658,6 +658,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     private int mDeviceHardwareKeys;
 
+    private int mForceNavbar = -1;
+
     private boolean mHandleVolumeKeysInWM;
 
     // Camera button control flags and actions
@@ -1029,6 +1031,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.KEY_HOME_DOUBLE_TAP_ACTION), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                    LineageSettings.System.FORCE_SHOW_NAVBAR), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.KEY_MENU_ACTION), false, this,
@@ -3279,6 +3284,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private void updateKeyAssignments() {
         int activeHardwareKeys = mDeviceHardwareKeys;
 
+        if (mForceNavbar == 1) {
+            activeHardwareKeys = 0;
+        }
+
         final boolean hasMenu = (activeHardwareKeys & KEY_MASK_MENU) != 0;
         final boolean hasAssist = (activeHardwareKeys & KEY_MASK_ASSIST) != 0;
         final boolean hasAppSwitch = (activeHardwareKeys & KEY_MASK_APP_SWITCH) != 0;
@@ -3448,6 +3457,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 mWakeGestureEnabledSetting = wakeGestureEnabledSetting;
                 updateWakeGestureListenerLp();
             }
+
+            mForceNavbar = LineageSettings.System.getIntForUser(resolver,
+                    LineageSettings.System.FORCE_SHOW_NAVBAR, 0,
+                    UserHandle.USER_CURRENT);
 
             updateKeyAssignments();
 
