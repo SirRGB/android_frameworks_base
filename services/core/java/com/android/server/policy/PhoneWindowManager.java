@@ -274,6 +274,7 @@ import com.android.server.wm.WindowManagerInternal.AppTransitionListener;
 
 import dalvik.system.PathClassLoader;
 
+import lineageos.hardware.LineageHardwareManager;
 import lineageos.providers.LineageSettings;
 
 import org.lineageos.internal.buttons.LineageButtons;
@@ -644,6 +645,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     private int mDeviceHardwareKeys;
 
+    private int mForceNavbar = -1;
+
     private boolean mHandleVolumeKeysInWM;
 
     // Camera button control flags and actions
@@ -814,6 +817,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private boolean mTorchEnabled;
     private int mTorchTimeout;
     private PendingIntent mTorchOffPendingIntent;
+
+    private LineageHardwareManager mLineageHardware;
 
     private boolean mLongSwipeDown;
     private CameraAvailbilityListener mCameraAvailabilityListener;
@@ -1020,6 +1025,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.KEY_HOME_DOUBLE_TAP_ACTION), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                    LineageSettings.System.FORCE_SHOW_NAVBAR), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.KEY_MENU_ACTION), false, this,
@@ -3310,8 +3318,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mSingleKeyGestureDetector.addRule(new AssistKeyRule());
     }
 
+    private void syncKeyDisabler() {
+        if (mLineageHardware != null
+                && mLineageHardware.isSupported(LineageHardwareManager.FEATURE_KEY_DISABLE)) {
+            mLineageHardware.set(LineageHardwareManager.FEATURE_KEY_DISABLE,
+                    mForceNavbar == 1);
+        }
+    }
+
     private void updateKeyAssignments() {
         int activeHardwareKeys = mDeviceHardwareKeys;
+
+        if (mForceNavbar == 1) {
+            activeHardwareKeys = 0;
+        }
 
         final boolean hasMenu = (activeHardwareKeys & KEY_MASK_MENU) != 0;
         final boolean hasAssist = (activeHardwareKeys & KEY_MASK_ASSIST) != 0;
@@ -3479,6 +3499,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             if (mWakeGestureEnabledSetting != wakeGestureEnabledSetting) {
                 mWakeGestureEnabledSetting = wakeGestureEnabledSetting;
                 updateWakeGestureListenerLp();
+            }
+
+            int forceNavbar = LineageSettings.System.getIntForUser(resolver,
+                    LineageSettings.System.FORCE_SHOW_NAVBAR, 0,
+                    UserHandle.USER_CURRENT);
+            if (forceNavbar != mForceNavbar) {
+                mForceNavbar = forceNavbar;
+                syncKeyDisabler();
             }
 
             updateKeyAssignments();
@@ -6711,6 +6739,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             mDefaultDisplayPolicy.setDockMode(dockMode);
         }
 
+        mLineageHardware = LineageHardwareManager.getInstance(mContext);
+        syncKeyDisabler();
         readCameraLensCoverState();
         updateUiMode();
         mDefaultDisplayRotation.updateOrientationListener();
